@@ -15,8 +15,9 @@ And also advanced features such as
  - Shuffle Pokemon sprites
  - Random text data (can make everything unreadable)
  - Randomize learnable moves
+ - Random item prices
  - Scripting (create your own randomizers)
 
-Note that this features are planned and there is nothing here at the moment. This randomizer is based on pk3DS but only includes randomization features.
+Note that this features are planned and there is nothing here at the moment. This randomizer is based on [pk3DS](https://github.com/kwsch/pk3DS) but only includes randomization features.
 
 Maybe I missed something here?
