@@ -14,6 +14,8 @@ namespace pk3DS
     { // Image Layering/Blending Utility
         internal static Bitmap LayerImage(Image baseLayer, Image overLayer, int x, int y, double trans)
         {
+            if (baseLayer == null)
+                return overLayer as Bitmap;
             Bitmap img = new Bitmap(baseLayer.Width, baseLayer.Height);
             using (Graphics gr = Graphics.FromImage(img))
             {
@@ -47,11 +49,15 @@ namespace pk3DS
 
             return bmp;
         }
-        internal static Bitmap getSprite(int species, int form, int gender, int item)
+        internal static Bitmap getSprite(int species, int form, int gender, int item, bool shiny = false)
         {
             string file;
-            if (species == 0)
+            if (species == 0) // fix with SM release
             { return (Bitmap)Properties.Resources.ResourceManager.GetObject("_0"); }
+            if (species > 802)
+            {
+                return (Bitmap)Properties.Resources.unknown;
+            }
             {
                 file = "_" + species;
                 if (form > 0) // Alt Form Handling
@@ -66,7 +72,7 @@ namespace pk3DS
             Bitmap baseImage = (Bitmap)Properties.Resources.ResourceManager.GetObject(file);
             if (baseImage == null)
             {
-                if (species < 722)
+                if (species < Main.Config.MaxSpeciesID)
                 {
                     baseImage = LayerImage(
                         (Image)Properties.Resources.ResourceManager.GetObject("_" + species),
@@ -75,6 +81,11 @@ namespace pk3DS
                 }
                 else
                     baseImage = Properties.Resources.unknown;
+            }
+            if (shiny)
+            {
+                // Add shiny star to top left of image.
+                baseImage = Util.LayerImage(baseImage, Properties.Resources.rare_icon, 0, 0, 0.7);
             }
             if (item > 0)
             {
@@ -170,27 +181,13 @@ namespace pk3DS
         }
         internal static int ToInt32(string value)
         {
-            value = value.Replace(" ", "");
-            if (string.IsNullOrEmpty(value))
-                return 0;
-            try
-            {
-                value = value.TrimEnd('_');
-                return int.Parse(value);
-            }
-            catch { return 0; }
+            string val = value?.Replace(" ", "").Replace("_", "").Trim();
+            return string.IsNullOrWhiteSpace(val) ? 0 : int.Parse(val);
         }
         internal static uint ToUInt32(string value)
         {
-            value = value.Replace(" ", "");
-            if (string.IsNullOrEmpty(value))
-                return 0;
-            try
-            {
-                value = value.TrimEnd('_');
-                return uint.Parse(value);
-            }
-            catch { return 0; }
+            string val = value?.Replace(" ", "").Replace("_", "").Trim();
+            return string.IsNullOrWhiteSpace(val) ? 0 : uint.Parse(val);
         }
         internal static uint getHEXval(TextBox tb)
         {
@@ -597,16 +594,15 @@ namespace pk3DS
         // Find Code off of Reference
         internal static int IndexOfBytes(byte[] array, byte[] pattern, int startIndex, int count)
         {
-            int i = startIndex;
-            int endIndex = count > 0 ? startIndex + count : array.Length;
-            int fidx = 0;
-
-            while (i++ != endIndex - 1)
+            int len = pattern.Length;
+            int endIndex = count > 0 ? startIndex + count + 1 : array.Length;
+            for (int i = startIndex; i < endIndex; i++)
             {
-                if (array[i] != pattern[fidx]) i -= fidx;
-                fidx = (array[i] == pattern[fidx]) ? ++fidx : 0;
-                if (fidx == pattern.Length)
-                    return i - fidx + 1;
+                for (int j = 0; j < len; j++)
+                    if (pattern[j] != array[i + j])
+                        goto next_i;
+                return i;
+                next_i:;
             }
             return -1;
         }

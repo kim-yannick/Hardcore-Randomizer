@@ -38,7 +38,7 @@ namespace pk3DS
             string path = files[0]; // open first D&D
 
             if (sender == PB_Unpack)
-                openARC(path);
+                openARC(path, pBar1);
             else if (sender == PB_BCLIM)
                 openIMG(path);
             else if (sender == PB_Repack)
@@ -67,15 +67,15 @@ namespace pk3DS
             PB_BCLIM.BackgroundImage = img;
         }
 
-        private int threads;
-        private void openARC(string path, bool recursing = false)
+        internal static volatile int threads;
+        internal static void openARC(string path, ProgressBar pBar1, bool recursing = false)
         {
             string newFolder = "";
             try
             {
                 // Pre-check file length to see if it is at least valid.
                 FileInfo fi = new FileInfo(path);
-                if (fi.Length > 1.6 * (1<<30)) { Util.Error("File is too big!"); return; } // 1.6 GB
+                if (fi.Length > (long)2 * (1<<30)) { Util.Error("File is too big!"); return; } // 2 GB
                 string folderPath = Path.Combine(Path.GetDirectoryName(path), Path.GetFileNameWithoutExtension(path));
 
                 byte[] first4 = new byte[4];
@@ -101,7 +101,7 @@ namespace pk3DS
                     if (Directory.Exists(newFolder))
                     {   
                         foreach (string file in Directory.GetFiles(newFolder))
-                            openARC(file, true);
+                            openARC(file, pBar1, true);
                         batchRenameExtension(newFolder);
                     }
                 }
@@ -153,7 +153,6 @@ namespace pk3DS
         {
             if (!Directory.Exists(path)) { Util.Error("Input path is not a Folder", path); return; }
             string folderName = Path.GetFileName(path);
-            if (folderName == null) return;
             string parentName = Directory.GetParent(path).FullName;
             int type = CB_Repack.SelectedIndex;
             switch (type)
@@ -173,9 +172,20 @@ namespace pk3DS
                 case 1: // GARC Pack
                 {
                     if (threads > 0) { Util.Alert("Please wait for all operations to finish first."); return; }
+                    DialogResult dr = Util.Prompt(MessageBoxButtons.YesNoCancel, "Format Selection:",
+                        "Yes: Sun/Moon (Version 6)\nNo: XY/ORAS (Version 4)");
+                    if (dr == DialogResult.Cancel)
+                        return;
+
+                    var version = dr == DialogResult.Yes ? CTR.GARC.VER_6 : CTR.GARC.VER_4;
+                    int padding = (int)NUD_Padding.Value;
+                    if (version == CTR.GARC.VER_4)
+                        padding = 4;
+
+                    string outfolder = Directory.GetParent(path).FullName;
                     new Thread(() =>
                     {
-                        bool r = CTR.GARC.garcPackMS(path, folderName + ".garc", pBar1);
+                        bool r = CTR.GARC.garcPackMS(path, Path.Combine(outfolder, folderName + ".garc"), version, padding, pBar1);
                         if (!r) { Util.Alert("Packing failed."); return; }
                         // Delete path after repacking
                         if (CHK_Delete.Checked && Directory.Exists(path))
@@ -275,7 +285,7 @@ namespace pk3DS
             PB_BCLIM.Size = CLIMWindow;
         }
 
-        private void batchRenameExtension(string Folder)
+        private static void batchRenameExtension(string Folder)
         {
             if (!Directory.Exists(Folder)) 
                 return;
